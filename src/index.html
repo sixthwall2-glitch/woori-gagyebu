@@ -66,16 +66,17 @@ svg.i{width:26px;height:26px;stroke:currentColor;fill:none;stroke-width:1.5;stro
 
 /* 달력 */
 .cal{margin-top:18px;border-top:1px solid var(--line)}
-.dow,.week{display:grid;grid-template-columns:repeat(7,1fr)}
+.dow,.week{display:grid;grid-template-columns:var(--lab) repeat(7,minmax(0,1fr))}
+.cal{--lab:62px}
 .dow{font-size:.75rem;color:var(--muted);text-align:center;padding-block:8px}
-.dow span:first-child{color:var(--danger)}
+.dow span:nth-child(2){color:var(--danger)}
 .week{border-bottom:1px solid var(--line)}
 .day{height:78px;display:flex;flex-direction:column;align-items:center;padding-top:6px;gap:1px;min-width:0}
 .day .d{width:34px;height:34px;display:grid;place-items:center;border-radius:50%;font-size:1.05rem}
 .day.hol .d{color:var(--faint)}
 .day.sel .d{background:var(--dark);color:var(--on-dark)}
 .day.today:not(.sel) .d{box-shadow:inset 0 0 0 1.5px var(--line)}
-.day .amt{font-size:.68rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.day .amt{font-size:.6rem;line-height:14px;letter-spacing:-.03em;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
 .day .amt.in{color:var(--in)}
 
 /* 선택한 날 내역 */
@@ -157,6 +158,10 @@ svg.i{width:26px;height:26px;stroke:currentColor;fill:none;stroke-width:1.5;stro
 .budget .bv.over{color:var(--danger)}
 .budget .track{height:7px;margin-block:2px}
 .budget .bd{font-size:.8rem;color:var(--muted)}
+.lab{display:flex;flex-direction:column;align-items:flex-start;padding:6px 0 0 max(6px,env(safe-area-inset-left,0px));gap:1px;min-width:0;overflow:hidden}
+.lab i{height:34px}
+.lab span{font-size:.54rem;line-height:14px;color:var(--muted);white-space:nowrap;letter-spacing:-.04em}
+.lab span:first-of-type{color:var(--ink);font-weight:500}
 .day .amt.avail{color:var(--ink);font-weight:500}
 .day .amt.over{color:var(--danger)}
 /* 로그인 */
@@ -218,7 +223,7 @@ svg.i{width:26px;height:26px;stroke:currentColor;fill:none;stroke-width:1.5;stro
     </div>
   </div>
   <div class="cal">
-    <div class="dow"><span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span></div>
+    <div class="dow"><span></span><span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span></div>
     <div id="weeks"></div>
   </div>
   <div class="daylist pad">

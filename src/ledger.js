@@ -112,6 +112,8 @@ function dailyBudgets(){
   return out;
 }
 function totals(){let i=0,o=0;entries.forEach(e=>e.type==="in"?i+=e.amount:o+=e.amount);return{i,o}}
+/* 달력 칸용: 100만 원 이상은 만 원 단위로 줄여 칸을 넘지 않게 한다 */
+function short(n){const a=Math.abs(n);return(n<0?"-":"")+(a>=1e6?fmt(Math.round(a/1e4))+"만":fmt(a))}
 function signed(n){return(n<0?"-":"")+fmt(Math.abs(n))}
 
 function renderHome(){
@@ -128,7 +130,8 @@ function renderHome(){
   const wk=$("weeks");wk.textContent="";
   let row=null;
   for(let c=0;c<first+days;c++){
-    if(c%7===0){row=document.createElement("div");row.className="week";wk.appendChild(row)}
+    if(c%7===0){row=document.createElement("div");row.className="week";wk.appendChild(row);
+      const lab=document.createElement("div");lab.className="lab";lab.setAttribute("aria-hidden","true");row.appendChild(lab)}
     const cell=document.createElement(c<first?"div":"button");cell.className="day";
     if(c>=first){
       const d=c-first+1,key=ds(ym.y,ym.m,d),dow=c%7;
@@ -139,14 +142,15 @@ function renderHome(){
       const n=document.createElement("span");n.className="d num";n.textContent=d;cell.appendChild(n);
       const p=perDay[key],bd=bud[key];
       if(bd&&key<=today){
-        const a=document.createElement("span");a.className="amt avail num";a.textContent=signed(bd.avail);if(bd.avail<0)a.classList.add("over");cell.appendChild(a);
-        if(bd.spent){const u=document.createElement("span");u.className="amt num";u.textContent="-"+fmt(bd.spent);if(bd.left<0)u.classList.add("over");cell.appendChild(u)}
+        const lab=row.firstChild;if(!lab.childElementCount)lab.innerHTML="<i></i><span>사용가능 예산</span><span>금일 사용금액</span>";
+        const a=document.createElement("span");a.className="amt avail num";a.textContent=short(bd.avail);if(bd.avail<0)a.classList.add("over");cell.appendChild(a);
+        if(bd.spent){const u=document.createElement("span");u.className="amt num";u.textContent=short(bd.spent);if(bd.left<0)u.classList.add("over");cell.appendChild(u)}
       }else if(p&&p.o){const u=document.createElement("span");u.className="amt num";u.textContent="-"+fmt(p.o);cell.appendChild(u)}
       cell.onclick=()=>{if(selDate===key){openNew()}else{selDate=key;renderHome()}};
     }
     row.appendChild(cell);
   }
-  while(row&&row.children.length<7){const e=document.createElement("div");e.className="day";row.appendChild(e)}
+  while(row&&row.children.length<8){const e=document.createElement("div");e.className="day";row.appendChild(e)}
 
   const sd=new Date(selDate+"T00:00:00");
   $("dayTitle").textContent=(sd.getMonth()+1)+"월 "+sd.getDate()+"일 ("+WD[sd.getDay()]+")";
