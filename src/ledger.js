@@ -72,6 +72,7 @@ let ym=(()=>{const d=new Date();return{y:d.getFullYear(),m:d.getMonth()+1}})();
 let pickerYear=ym.y;
 let selDate=todayStr();
 const DAILY_DEFAULT=100000;
+const BUDGET_FIRST_DAY="2026-11-03"; // 하루 예산 계산을 처음 시작한 날. 이날 이전은 계산하지 않는다.
 let allEntries=[];
 let entries=[];
 let settings={budget:0,daily:DAILY_DEFAULT,members:DEFAULT_MEMBERS.slice()};
@@ -102,7 +103,9 @@ const dayStr=n=>new Date(n*864e5).toISOString().slice(0,10);
 function dailyBudgets(){
   const B=settings.daily||0, out={};
   if(!B)return out;
-  const[mStart,mEnd]=monthRange();
+  let[mStart,mEnd]=monthRange();
+  if(mEnd<=BUDGET_FIRST_DAY)return out;
+  if(mStart<BUDGET_FIRST_DAY)mStart=BUDGET_FIRST_DAY;
   const spent={};entries.forEach(e=>{if(e.type==="out")spent[e.date]=(spent[e.date]||0)+e.amount});
   let carry=0;
   for(let n=dayNum(mStart),end=dayNum(mEnd);n<end;n++){
