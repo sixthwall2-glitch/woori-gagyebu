@@ -28,7 +28,6 @@ jobs:
       - run: npm ci
       - run: npm run build
       - uses: actions/configure-pages@v5
-        with: { enablement: true }
       - uses: actions/upload-pages-artifact@v3
         with: { path: www }
       - id: deploy
@@ -50,13 +49,13 @@ jobs:
       - name: 서명 키 준비
         id: key
         env:
-          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
         run: |
-          if [ -n "$KEYSTORE_BASE64" ]; then
-            echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
-            echo "file=$RUNNER_TEMP/release.jks" >> "$GITHUB_OUTPUT"
+          # android/release.jks는 긴 무작위 비밀번호로 암호화되어 있고, 비밀번호는 저장소 비밀값에만 있습니다.
+          if [ -n "$KEYSTORE_PASSWORD" ]; then
+            echo "file=$GITHUB_WORKSPACE/android/release.jks" >> "$GITHUB_OUTPUT"
           else
-            echo "::warning::KEYSTORE_BASE64 비밀값이 없어 디버그 APK로 빌드합니다. 이 경우 다음 빌드로 덮어쓰기 설치가 되지 않을 수 있습니다."
+            echo "::warning::KEYSTORE_PASSWORD 비밀값이 없어 디버그 APK로 빌드합니다."
           fi
 
       - name: APK 빌드
@@ -64,7 +63,7 @@ jobs:
         env:
           KEYSTORE_FILE: ${{ steps.key.outputs.file }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_ALIAS: gagyebu
         run: |
           chmod +x gradlew
           if [ -n "$KEYSTORE_FILE" ]; then

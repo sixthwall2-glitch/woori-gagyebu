@@ -1,6 +1,7 @@
 node_modules/
 www/
 *.jks
+!android/release.jks
 *.keystore
 android/app/build/
 android/build/

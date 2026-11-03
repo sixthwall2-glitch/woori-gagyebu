@@ -18,4 +18,4 @@
 | `.github/workflows/build.yml` | main에 올리면 APK 빌드 + 웹 배포 |
 
 ## 빌드 비밀값 (Settings → Secrets and variables → Actions)
-`KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS` — 앱 서명 키. 키가 바뀌면 기존 앱 위에 업데이트 설치가 되지 않으니 원본 키 파일을 따로 보관하세요.
+`KEYSTORE_PASSWORD` — `android/release.jks`(앱 서명 키)의 비밀번호. 키가 바뀌면 기존 앱 위에 업데이트 설치가 되지 않으니 원본 키 파일을 따로 보관하세요.
