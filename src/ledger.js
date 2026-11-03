@@ -124,7 +124,7 @@ function renderHome(){
   const{i,o}=totals();
   $("sIn").textContent="+"+fmt(i)+"원";
   const B=settings.budget||0;
-  $("sOut").textContent="-"+fmt(o)+"원"+(B?" (예산 "+Math.round(o/B*100)+"%)":"");
+  $("sOut").textContent="-"+fmt(o)+"원";
   $("sNet").textContent=signed(i-o)+"원";
 
   const bud=dailyBudgets();
