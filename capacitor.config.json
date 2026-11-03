@@ -1,0 +1,7 @@
+{
+  "appId": "com.woori.gagyebu",
+  "appName": "우리집 가계부",
+  "webDir": "www",
+  "android": { "allowMixedContent": false },
+  "plugins": { "SystemBars": { "insetsHandling": "css" } }
+}

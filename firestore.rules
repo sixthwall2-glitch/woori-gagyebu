@@ -1,0 +1,23 @@
+rules_version = '2';
+// 두 사람 이메일로 로그인한 경우에만 가계부를 읽고 쓸 수 있습니다.
+// 아래 두 주소를 실제 로그인 이메일로 바꾼 뒤 Firebase 콘솔 > Firestore > 규칙 에 붙여 넣고 [게시]를 누르세요.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isFamily() {
+      return request.auth != null
+        && request.auth.token.email in ['HUSBAND_EMAIL', 'WIFE_EMAIL'];
+    }
+    match /entries/{id} {
+      allow read: if isFamily();
+      allow write: if isFamily()
+        && (request.method == 'delete' || (
+             request.resource.data.amount is number
+             && request.resource.data.amount > 0
+             && request.resource.data.type in ['in', 'out']
+             && request.resource.data.date is string));
+    }
+    match /meta/settings {
+      allow read, write: if isFamily();
+    }
+  }
+}
