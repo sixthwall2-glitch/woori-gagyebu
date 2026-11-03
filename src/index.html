@@ -70,7 +70,7 @@ svg.i{width:26px;height:26px;stroke:currentColor;fill:none;stroke-width:1.5;stro
 .dow{font-size:.75rem;color:var(--muted);text-align:center;padding-block:8px}
 .dow span:first-child{color:var(--danger)}
 .week{border-bottom:1px solid var(--line)}
-.day{height:66px;display:flex;flex-direction:column;align-items:center;padding-top:8px;gap:3px;min-width:0}
+.day{height:78px;display:flex;flex-direction:column;align-items:center;padding-top:6px;gap:1px;min-width:0}
 .day .d{width:34px;height:34px;display:grid;place-items:center;border-radius:50%;font-size:1.05rem}
 .day.hol .d{color:var(--faint)}
 .day.sel .d{background:var(--dark);color:var(--on-dark)}
@@ -157,6 +157,7 @@ svg.i{width:26px;height:26px;stroke:currentColor;fill:none;stroke-width:1.5;stro
 .budget .bv.over{color:var(--danger)}
 .budget .track{height:7px;margin-block:2px}
 .budget .bd{font-size:.8rem;color:var(--muted)}
+.day .amt.avail{color:var(--ink);font-weight:500}
 .day .amt.over{color:var(--danger)}
 /* 로그인 */
 .login{flex:1;display:flex;flex-direction:column;justify-content:center;gap:28px;padding-block:40px}
@@ -312,7 +313,6 @@ svg.i{width:26px;height:26px;stroke:currentColor;fill:none;stroke-width:1.5;stro
       <h2>설정</h2>
       <div class="sheet">
         <label>하루 예산 (원)<input id="dailyIn" inputmode="numeric" placeholder="100,000"></label>
-        <label>하루 예산 시작일<input id="startIn" type="date"></label>
         <label>월 지출 예산 (원, 선택)<input id="budgetIn" inputmode="numeric" placeholder="예: 3,000,000"></label>
         <div id="memberEdit"></div>
         <div class="btns"><button class="pill" id="saveSettings">설정 저장</button></div>

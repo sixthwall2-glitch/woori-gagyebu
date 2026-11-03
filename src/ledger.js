@@ -71,10 +71,10 @@ let db=null,canWrite=true,unsub=null;
 let ym=(()=>{const d=new Date();return{y:d.getFullYear(),m:d.getMonth()+1}})();
 let pickerYear=ym.y;
 let selDate=todayStr();
-const DAILY_DEFAULT=100000, START_DEFAULT="2026-11-03";
+const DAILY_DEFAULT=100000;
 let allEntries=[];
 let entries=[];
-let settings={budget:0,daily:DAILY_DEFAULT,start:START_DEFAULT,members:DEFAULT_MEMBERS.slice()};
+let settings={budget:0,daily:DAILY_DEFAULT,members:DEFAULT_MEMBERS.slice()};
 let draft=null;
 let memoHist=new Map(); // memo -> {category,type,count}
 let autoComplete=true; try{autoComplete=localStorage.getItem("ac")!=="0"}catch(e){}
@@ -94,17 +94,18 @@ function toast(t){const el=$("toast");el.textContent=t;el.hidden=false;clearTime
 
 /* ---------- 홈 ---------- */
 function monthRange(){const s=ds(ym.y,ym.m,1);const n=ym.m===12?{y:ym.y+1,m:1}:{y:ym.y,m:ym.m+1};return[s,ds(n.y,n.m,1)]}
-/* 하루 예산 이월 계산
-   쓸 수 있는 돈(d) = 하루 예산 + 전날 남은 돈,  남은 돈(d) = 쓸 수 있는 돈(d) − 지출(d)
-   전날 초과하면 남은 돈이 음수라 그만큼 줄어든다. 시작일 이전은 계산하지 않는다. */
+/* 하루 예산 이월 계산 (매월 1일에 초기화)
+   사용 가능(d) = 하루 예산 + 전날 남은 돈,  남은 돈(d) = 사용 가능(d) − 사용(d)
+   전날 초과하면 남은 돈이 음수라 그만큼 줄어든다. 말일의 남은 돈 = 그 달에 아낀 금액. */
 const dayNum=s=>Math.round(Date.parse(s+"T00:00:00Z")/864e5);
 const dayStr=n=>new Date(n*864e5).toISOString().slice(0,10);
-function dailyBudgets(until){
+function dailyBudgets(){
   const B=settings.daily||0, out={};
-  if(!B||!settings.start||until<settings.start)return out;
-  const spent={};allEntries.forEach(e=>{if(e.type==="out"&&e.date>=settings.start)spent[e.date]=(spent[e.date]||0)+e.amount});
+  if(!B)return out;
+  const[mStart,mEnd]=monthRange();
+  const spent={};entries.forEach(e=>{if(e.type==="out")spent[e.date]=(spent[e.date]||0)+e.amount});
   let carry=0;
-  for(let n=dayNum(settings.start),end=dayNum(until);n<=end;n++){
+  for(let n=dayNum(mStart),end=dayNum(mEnd);n<end;n++){
     const k=dayStr(n),avail=B+carry,sp=spent[k]||0;
     out[k]={avail,spent:sp,left:avail-sp,carry};carry=avail-sp;
   }
@@ -121,7 +122,7 @@ function renderHome(){
   $("sOut").textContent="-"+fmt(o)+"원"+(B?" (예산 "+Math.round(o/B*100)+"%)":"");
   $("sNet").textContent=signed(i-o)+"원";
 
-  const[,mEnd]=monthRange();const bud=dailyBudgets(dayStr(dayNum(mEnd)-1)>selDate?dayStr(dayNum(mEnd)-1):selDate);
+  const bud=dailyBudgets();
   const perDay={};entries.forEach(e=>{const p=perDay[e.date]||(perDay[e.date]={o:0,i:0});e.type==="in"?p.i+=e.amount:p.o+=e.amount});
   const first=new Date(ym.y,ym.m-1,1).getDay(), days=new Date(ym.y,ym.m,0).getDate(), today=todayStr();
   const wk=$("weeks");wk.textContent="";
@@ -136,9 +137,11 @@ function renderHome(){
       if(key===today)cell.classList.add("today");
       cell.setAttribute("aria-label",ym.m+"월 "+d+"일");
       const n=document.createElement("span");n.className="d num";n.textContent=d;cell.appendChild(n);
-      const p=perDay[key];
-      if(p&&p.o){const a=document.createElement("span");a.className="amt num";a.textContent="-"+fmt(p.o);if(bud[key]&&bud[key].left<0)a.classList.add("over");cell.appendChild(a)}
-      if(p&&p.i){const a=document.createElement("span");a.className="amt in num";a.textContent="+"+fmt(p.i);cell.appendChild(a)}
+      const p=perDay[key],bd=bud[key];
+      if(bd&&key<=today){
+        const a=document.createElement("span");a.className="amt avail num";a.textContent=signed(bd.avail);if(bd.avail<0)a.classList.add("over");cell.appendChild(a);
+        if(bd.spent){const u=document.createElement("span");u.className="amt num";u.textContent="-"+fmt(bd.spent);if(bd.left<0)u.classList.add("over");cell.appendChild(u)}
+      }else if(p&&p.o){const u=document.createElement("span");u.className="amt num";u.textContent="-"+fmt(p.o);cell.appendChild(u)}
       cell.onclick=()=>{if(selDate===key){openNew()}else{selDate=key;renderHome()}};
     }
     row.appendChild(cell);
@@ -150,11 +153,14 @@ function renderHome(){
   const bx=$("budgetBox"),b=bud[selDate];
   bx.hidden=!b;
   if(b){
-    $("bLabel").textContent=selDate===today?"오늘 쓸 수 있는 돈":selDate<today?"이날 예산":"이날 예정 예산";
+    const isLast=dayNum(selDate)===dayNum(monthRange()[1])-1;
+    $("bLabel").textContent=(isLast?"이번 달 목표 달성액 · ":"")+(selDate===today?"오늘 남은 돈":selDate<today?"이날 남은 돈":"이날 예정 남은 돈");
     const left=$("bLeft");left.textContent=signed(b.left)+"원";left.classList.toggle("over",b.left<0);
-    $("bDetail").textContent="하루 "+fmt(settings.daily)+(b.carry>0?" + 이월 "+fmt(b.carry):b.carry<0?" − 초과 "+fmt(-b.carry):"")+" = "+fmt(b.avail)+"원 · 지출 "+fmt(b.spent)+"원";
+    $("bDetail").textContent="사용 가능 "+signed(b.avail)+"원 (하루 "+fmt(settings.daily)+(b.carry>0?" + 이월 "+fmt(b.carry):b.carry<0?" − 초과 "+fmt(-b.carry):"")+") · 사용 "+fmt(b.spent)+"원";
     const pct=b.avail>0?Math.min(100,b.spent/b.avail*100):100;$("bBar").style.width=pct+"%";$("bBar").classList.toggle("over",b.left<0);
-    $("bNext").textContent=b.left>=0?"남은 "+fmt(b.left)+"원은 다음 날 예산에 더해집니다.":"초과한 "+fmt(-b.left)+"원은 다음 날 예산에서 빠집니다.";
+    $("bNext").textContent=isLast&&selDate>today?"남은 날 더 쓰지 않으면 이번 달 "+(b.left>=0?fmt(b.left)+"원을 아끼게 됩니다.":fmt(-b.left)+"원 초과로 끝납니다.")
+      :isLast?"이번 달에 "+(b.left>=0?fmt(b.left)+"원을 아꼈습니다.":fmt(-b.left)+"원을 초과했습니다.")+" 다음 달 1일에 새로 시작합니다."
+      :b.left>=0?"남은 "+fmt(b.left)+"원은 다음 날 사용 가능 금액에 더해집니다.":"초과한 "+fmt(-b.left)+"원은 다음 날 사용 가능 금액에서 빠집니다.";
   }
   const rows=$("dayRows");rows.textContent="";
   const list=entries.filter(e=>e.date===selDate).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
@@ -325,7 +331,7 @@ function renderStats(){
   if(B){const r=document.createElement("div");r.className="brow";r.innerHTML='<span>예산</span><div class="track"><i></i></div><span class="num"></span>';
     const p=o/B;const i=r.querySelector("i");i.style.width=Math.min(100,p*100)+"%";i.classList.toggle("over",p>1);
     r.children[2].textContent=fmt(o)+" / "+fmt(B)+"원";$("byCat").prepend(r)}
-  $("budgetIn").value=B?fmt(B):"";$("dailyIn").value=settings.daily?fmt(settings.daily):"";$("startIn").value=settings.start||"";
+  $("budgetIn").value=B?fmt(B):"";$("dailyIn").value=settings.daily?fmt(settings.daily):"";
   renderMemberEdit();
 }
 function renderMemberEdit(){
@@ -344,16 +350,13 @@ function renderMemberEdit(){
 }
 $("saveSettings").onclick=async()=>{
   const members=settings.members.map(m=>{const i=document.querySelector('#memberEdit input[data-id="'+m.id+'"]');return{...m,label:(i&&i.value.trim())||m.label}});
-  const start=$("startIn").value;
-  if(!/^\d{4}-\d{2}-\d{2}$/.test(start)){toast("시작일을 선택하세요");return}
-  if(await saveSettings({budget:parseWon($("budgetIn").value),daily:parseWon($("dailyIn").value),start,members})){toast("설정을 저장했습니다");renderStats();renderHome()}
+  if(await saveSettings({budget:parseWon($("budgetIn").value),daily:parseWon($("dailyIn").value),members})){toast("설정을 저장했습니다");renderStats();renderHome()}
 };
 async function saveSettings(patch){
   if(blockIfReadOnly())return false;
   if(!db){toast("저장소에 연결되지 않았습니다.");return false}
   const next={...settings,...patch};
-  const restart=next.start!==settings.start;
-  try{await db.doc("meta/settings").set({budget:next.budget||0,daily:next.daily,start:next.start,members:next.members});settings=next;if(restart)subscribe();return true}
+  try{await db.doc("meta/settings").set({budget:next.budget||0,daily:next.daily,members:next.members});settings=next;return true}
   catch(e){toast(errText(e));return false}
 }
 
@@ -363,7 +366,7 @@ function setReadOnly(){canWrite=false;const s=$("status");s.hidden=false;s.textC
 function subscribe(){
   if(unsub)unsub();entries=[];allEntries=[];renderHome();if(!db)return;
   const[s,e]=monthRange();
-  const from=settings.start&&settings.start<s?settings.start:s;
+  const from=s;
   unsub=db.collection("entries").where("date",">=",from).where("date","<",e).orderBy("date","desc")
     .onSnapshot(snap=>{allEntries=snap.docs.map(d=>({id:d.id,...d.data()})).filter(x=>typeof x.amount==="number");
       entries=allEntries.filter(x=>x.date>=s);
@@ -374,10 +377,8 @@ export function startSession(adapter){
   db=adapter;canWrite=true;$("status").hidden=true;
   if(unsubSettings)unsubSettings();
   unsubSettings=db.doc("meta/settings").onSnapshot(s=>{if(!s.exists)return;const d=s.data();
-    const oldStart=settings.start;
-    settings={budget:Number(d.budget)||0,daily:d.daily==null?DAILY_DEFAULT:Number(d.daily)||0,start:/^\d{4}-\d{2}-\d{2}$/.test(d.start||"")?d.start:START_DEFAULT,
+    settings={budget:Number(d.budget)||0,daily:d.daily==null?DAILY_DEFAULT:Number(d.daily)||0,
       members:Array.isArray(d.members)&&d.members.length?d.members:DEFAULT_MEMBERS.slice()};
-    if(settings.start!==oldStart)subscribe();
     renderHome();if(!$("sStats").hidden)renderMemberEdit()},()=>{});
   subscribe();show("sHome");
   memoHist=new Map();
@@ -387,7 +388,7 @@ export function startSession(adapter){
 }
 export function endSession(){
   if(unsub)unsub();if(unsubSettings)unsubSettings();unsub=unsubSettings=null;db=null;entries=[];
-  settings={budget:0,daily:DAILY_DEFAULT,start:START_DEFAULT,members:DEFAULT_MEMBERS.slice()};allEntries=[];renderHome();show("sLogin");
+  settings={budget:0,daily:DAILY_DEFAULT,members:DEFAULT_MEMBERS.slice()};allEntries=[];renderHome();show("sLogin");
 }
 export {toast,show,$};
 renderHome();
