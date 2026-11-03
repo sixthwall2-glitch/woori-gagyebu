@@ -71,8 +71,10 @@ let db=null,canWrite=true,unsub=null;
 let ym=(()=>{const d=new Date();return{y:d.getFullYear(),m:d.getMonth()+1}})();
 let pickerYear=ym.y;
 let selDate=todayStr();
+const DAILY_DEFAULT=100000, START_DEFAULT="2026-11-03";
+let allEntries=[];
 let entries=[];
-let settings={budget:0,members:DEFAULT_MEMBERS.slice()};
+let settings={budget:0,daily:DAILY_DEFAULT,start:START_DEFAULT,members:DEFAULT_MEMBERS.slice()};
 let draft=null;
 let memoHist=new Map(); // memo -> {category,type,count}
 let autoComplete=true; try{autoComplete=localStorage.getItem("ac")!=="0"}catch(e){}
@@ -92,6 +94,22 @@ function toast(t){const el=$("toast");el.textContent=t;el.hidden=false;clearTime
 
 /* ---------- 홈 ---------- */
 function monthRange(){const s=ds(ym.y,ym.m,1);const n=ym.m===12?{y:ym.y+1,m:1}:{y:ym.y,m:ym.m+1};return[s,ds(n.y,n.m,1)]}
+/* 하루 예산 이월 계산
+   쓸 수 있는 돈(d) = 하루 예산 + 전날 남은 돈,  남은 돈(d) = 쓸 수 있는 돈(d) − 지출(d)
+   전날 초과하면 남은 돈이 음수라 그만큼 줄어든다. 시작일 이전은 계산하지 않는다. */
+const dayNum=s=>Math.round(Date.parse(s+"T00:00:00Z")/864e5);
+const dayStr=n=>new Date(n*864e5).toISOString().slice(0,10);
+function dailyBudgets(until){
+  const B=settings.daily||0, out={};
+  if(!B||!settings.start||until<settings.start)return out;
+  const spent={};allEntries.forEach(e=>{if(e.type==="out"&&e.date>=settings.start)spent[e.date]=(spent[e.date]||0)+e.amount});
+  let carry=0;
+  for(let n=dayNum(settings.start),end=dayNum(until);n<=end;n++){
+    const k=dayStr(n),avail=B+carry,sp=spent[k]||0;
+    out[k]={avail,spent:sp,left:avail-sp,carry};carry=avail-sp;
+  }
+  return out;
+}
 function totals(){let i=0,o=0;entries.forEach(e=>e.type==="in"?i+=e.amount:o+=e.amount);return{i,o}}
 function signed(n){return(n<0?"-":"")+fmt(Math.abs(n))}
 
@@ -103,6 +121,7 @@ function renderHome(){
   $("sOut").textContent="-"+fmt(o)+"원"+(B?" (예산 "+Math.round(o/B*100)+"%)":"");
   $("sNet").textContent=signed(i-o)+"원";
 
+  const[,mEnd]=monthRange();const bud=dailyBudgets(dayStr(dayNum(mEnd)-1)>selDate?dayStr(dayNum(mEnd)-1):selDate);
   const perDay={};entries.forEach(e=>{const p=perDay[e.date]||(perDay[e.date]={o:0,i:0});e.type==="in"?p.i+=e.amount:p.o+=e.amount});
   const first=new Date(ym.y,ym.m-1,1).getDay(), days=new Date(ym.y,ym.m,0).getDate(), today=todayStr();
   const wk=$("weeks");wk.textContent="";
@@ -118,7 +137,7 @@ function renderHome(){
       cell.setAttribute("aria-label",ym.m+"월 "+d+"일");
       const n=document.createElement("span");n.className="d num";n.textContent=d;cell.appendChild(n);
       const p=perDay[key];
-      if(p&&p.o){const a=document.createElement("span");a.className="amt num";a.textContent="-"+fmt(p.o);cell.appendChild(a)}
+      if(p&&p.o){const a=document.createElement("span");a.className="amt num";a.textContent="-"+fmt(p.o);if(bud[key]&&bud[key].left<0)a.classList.add("over");cell.appendChild(a)}
       if(p&&p.i){const a=document.createElement("span");a.className="amt in num";a.textContent="+"+fmt(p.i);cell.appendChild(a)}
       cell.onclick=()=>{if(selDate===key){openNew()}else{selDate=key;renderHome()}};
     }
@@ -128,6 +147,15 @@ function renderHome(){
 
   const sd=new Date(selDate+"T00:00:00");
   $("dayTitle").textContent=(sd.getMonth()+1)+"월 "+sd.getDate()+"일 ("+WD[sd.getDay()]+")";
+  const bx=$("budgetBox"),b=bud[selDate];
+  bx.hidden=!b;
+  if(b){
+    $("bLabel").textContent=selDate===today?"오늘 쓸 수 있는 돈":selDate<today?"이날 예산":"이날 예정 예산";
+    const left=$("bLeft");left.textContent=signed(b.left)+"원";left.classList.toggle("over",b.left<0);
+    $("bDetail").textContent="하루 "+fmt(settings.daily)+(b.carry>0?" + 이월 "+fmt(b.carry):b.carry<0?" − 초과 "+fmt(-b.carry):"")+" = "+fmt(b.avail)+"원 · 지출 "+fmt(b.spent)+"원";
+    const pct=b.avail>0?Math.min(100,b.spent/b.avail*100):100;$("bBar").style.width=pct+"%";$("bBar").classList.toggle("over",b.left<0);
+    $("bNext").textContent=b.left>=0?"남은 "+fmt(b.left)+"원은 다음 날 예산에 더해집니다.":"초과한 "+fmt(-b.left)+"원은 다음 날 예산에서 빠집니다.";
+  }
   const rows=$("dayRows");rows.textContent="";
   const list=entries.filter(e=>e.date===selDate).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
   if(!list.length){rows.innerHTML='<div class="empty">이날 기록이 없습니다. 아래 버튼으로 등록하세요.</div>'}
@@ -178,7 +206,7 @@ function renderWho(){
 }
 $("dateIn").addEventListener("change",()=>{if($("dateIn").value){draft.date=$("dateIn").value;$("dateVal").textContent=dateLabel(draft.date)}});
 function comma(el){el.addEventListener("input",()=>{const n=parseWon(el.value);el.value=n?fmt(n):""})}
-comma($("amountIn"));comma($("amount2"));comma($("budgetIn"));
+comma($("amountIn"));comma($("amount2"));comma($("budgetIn"));comma($("dailyIn"));
 function pickWho(id){
   const n=parseWon($("amountIn").value);
   if(!n){$("whoMsg").textContent="금액을 먼저 입력하세요.";$("amountIn").focus();return}
@@ -297,7 +325,7 @@ function renderStats(){
   if(B){const r=document.createElement("div");r.className="brow";r.innerHTML='<span>예산</span><div class="track"><i></i></div><span class="num"></span>';
     const p=o/B;const i=r.querySelector("i");i.style.width=Math.min(100,p*100)+"%";i.classList.toggle("over",p>1);
     r.children[2].textContent=fmt(o)+" / "+fmt(B)+"원";$("byCat").prepend(r)}
-  $("budgetIn").value=B?fmt(B):"";
+  $("budgetIn").value=B?fmt(B):"";$("dailyIn").value=settings.daily?fmt(settings.daily):"";$("startIn").value=settings.start||"";
   renderMemberEdit();
 }
 function renderMemberEdit(){
@@ -316,13 +344,16 @@ function renderMemberEdit(){
 }
 $("saveSettings").onclick=async()=>{
   const members=settings.members.map(m=>{const i=document.querySelector('#memberEdit input[data-id="'+m.id+'"]');return{...m,label:(i&&i.value.trim())||m.label}});
-  if(await saveSettings({budget:parseWon($("budgetIn").value),members})){toast("설정을 저장했습니다");renderStats();renderHome()}
+  const start=$("startIn").value;
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(start)){toast("시작일을 선택하세요");return}
+  if(await saveSettings({budget:parseWon($("budgetIn").value),daily:parseWon($("dailyIn").value),start,members})){toast("설정을 저장했습니다");renderStats();renderHome()}
 };
 async function saveSettings(patch){
   if(blockIfReadOnly())return false;
   if(!db){toast("저장소에 연결되지 않았습니다.");return false}
   const next={...settings,...patch};
-  try{await db.doc("meta/settings").set({budget:next.budget||0,members:next.members});settings=next;return true}
+  const restart=next.start!==settings.start;
+  try{await db.doc("meta/settings").set({budget:next.budget||0,daily:next.daily,start:next.start,members:next.members});settings=next;if(restart)subscribe();return true}
   catch(e){toast(errText(e));return false}
 }
 
@@ -330,10 +361,12 @@ async function saveSettings(patch){
 /* ---------- 데이터 연결 (Firebase) ---------- */
 function setReadOnly(){canWrite=false;const s=$("status");s.hidden=false;s.textContent="이 계정은 가계부에 접근할 권한이 없습니다. 등록된 이메일로 로그인했는지 확인하세요."}
 function subscribe(){
-  if(unsub)unsub();entries=[];renderHome();if(!db)return;
+  if(unsub)unsub();entries=[];allEntries=[];renderHome();if(!db)return;
   const[s,e]=monthRange();
-  unsub=db.collection("entries").where("date",">=",s).where("date","<",e).orderBy("date","desc").limit(1000)
-    .onSnapshot(snap=>{entries=snap.docs.map(d=>({id:d.id,...d.data()})).filter(x=>typeof x.amount==="number");
+  const from=settings.start&&settings.start<s?settings.start:s;
+  unsub=db.collection("entries").where("date",">=",from).where("date","<",e).orderBy("date","desc")
+    .onSnapshot(snap=>{allEntries=snap.docs.map(d=>({id:d.id,...d.data()})).filter(x=>typeof x.amount==="number");
+      entries=allEntries.filter(x=>x.date>=s);
       renderHome();if(!$("sList").hidden)renderList();if(!$("sStats").hidden)renderStats()},
       err=>{if(err&&err.code==="permission-denied")setReadOnly();else $("dayRows").innerHTML='<div class="empty">내역을 불러오지 못했습니다. 앱을 다시 열어 주세요.</div>'});
 }
@@ -341,7 +374,10 @@ export function startSession(adapter){
   db=adapter;canWrite=true;$("status").hidden=true;
   if(unsubSettings)unsubSettings();
   unsubSettings=db.doc("meta/settings").onSnapshot(s=>{if(!s.exists)return;const d=s.data();
-    settings={budget:Number(d.budget)||0,members:Array.isArray(d.members)&&d.members.length?d.members:DEFAULT_MEMBERS.slice()};
+    const oldStart=settings.start;
+    settings={budget:Number(d.budget)||0,daily:d.daily==null?DAILY_DEFAULT:Number(d.daily)||0,start:/^\d{4}-\d{2}-\d{2}$/.test(d.start||"")?d.start:START_DEFAULT,
+      members:Array.isArray(d.members)&&d.members.length?d.members:DEFAULT_MEMBERS.slice()};
+    if(settings.start!==oldStart)subscribe();
     renderHome();if(!$("sStats").hidden)renderMemberEdit()},()=>{});
   subscribe();show("sHome");
   memoHist=new Map();
@@ -351,7 +387,7 @@ export function startSession(adapter){
 }
 export function endSession(){
   if(unsub)unsub();if(unsubSettings)unsubSettings();unsub=unsubSettings=null;db=null;entries=[];
-  settings={budget:0,members:DEFAULT_MEMBERS.slice()};renderHome();show("sLogin");
+  settings={budget:0,daily:DAILY_DEFAULT,start:START_DEFAULT,members:DEFAULT_MEMBERS.slice()};allEntries=[];renderHome();show("sLogin");
 }
 export {toast,show,$};
 renderHome();

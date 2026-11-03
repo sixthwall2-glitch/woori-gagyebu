@@ -150,6 +150,14 @@ svg.i{width:26px;height:26px;stroke:currentColor;fill:none;stroke-width:1.5;stro
 .toast{position:fixed;left:50%;bottom:calc(28px + var(--safe-area-inset-bottom,env(safe-area-inset-bottom,0px)));transform:translateX(-50%);background:var(--dark);color:var(--on-dark);padding:10px 18px;border-radius:999px;font-size:.9rem;z-index:20;max-width:calc(100% - 40px)}
 @media (prefers-reduced-motion:reduce){.sw,.sw::after,.tile .c{transition:none}}
 
+/* 하루 예산 */
+.budget{background:var(--bg);border:1px solid var(--line);border-radius:16px;padding:14px 16px;display:grid;gap:6px;margin-bottom:12px}
+.budget .bk{font-size:.82rem;color:var(--muted)}
+.budget .bv{font-size:1.6rem;font-weight:600;letter-spacing:-.02em}
+.budget .bv.over{color:var(--danger)}
+.budget .track{height:7px;margin-block:2px}
+.budget .bd{font-size:.8rem;color:var(--muted)}
+.day .amt.over{color:var(--danger)}
 /* 로그인 */
 .login{flex:1;display:flex;flex-direction:column;justify-content:center;gap:28px;padding-block:40px}
 .login .logo{width:72px;height:72px;border-radius:20px}
@@ -213,6 +221,13 @@ svg.i{width:26px;height:26px;stroke:currentColor;fill:none;stroke-width:1.5;stro
     <div id="weeks"></div>
   </div>
   <div class="daylist pad">
+    <div class="budget" id="budgetBox" hidden>
+      <div class="bk" id="bLabel">오늘 쓸 수 있는 돈</div>
+      <div class="bv num" id="bLeft">0원</div>
+      <div class="track"><i id="bBar"></i></div>
+      <div class="bd num" id="bDetail"></div>
+      <div class="bd" id="bNext"></div>
+    </div>
     <div class="daytitle" id="dayTitle"></div>
     <div id="dayRows"></div>
     <button class="cta" id="ctaAdd">가계부 등록</button>
@@ -296,7 +311,9 @@ svg.i{width:26px;height:26px;stroke:currentColor;fill:none;stroke-width:1.5;stro
     <div class="section">
       <h2>설정</h2>
       <div class="sheet">
-        <label>월 지출 예산 (원)<input id="budgetIn" inputmode="numeric" placeholder="예: 3,000,000"></label>
+        <label>하루 예산 (원)<input id="dailyIn" inputmode="numeric" placeholder="100,000"></label>
+        <label>하루 예산 시작일<input id="startIn" type="date"></label>
+        <label>월 지출 예산 (원, 선택)<input id="budgetIn" inputmode="numeric" placeholder="예: 3,000,000"></label>
         <div id="memberEdit"></div>
         <div class="btns"><button class="pill" id="saveSettings">설정 저장</button></div>
       </div>
