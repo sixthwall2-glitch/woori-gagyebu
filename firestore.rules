@@ -19,5 +19,9 @@ service cloud.firestore {
     match /meta/settings {
       allow read, write: if isFamily();
     }
+    // 카카오톡 리포트용 연결 정보: 각자 자기 것만 읽고 쓸 수 있습니다. 발송 프로그램은 관리자 키로 읽습니다.
+    match /kakao/{uid} {
+      allow read, write: if isFamily() && request.auth.uid == uid;
+    }
   }
 }
