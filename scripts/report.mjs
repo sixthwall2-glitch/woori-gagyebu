@@ -81,7 +81,8 @@ async function send(access, text) {
 
 const settings = (await db.doc("meta/settings").get()).data() || {};
 const daily = settings.daily == null ? DAILY : Number(settings.daily) || DAILY;
-const msgs = await build(daily);
+const TEST = process.argv.includes("--test");
+const msgs = (await build(daily)).map(m => TEST ? "[테스트 발송]\n" + m : m);
 console.log(`기준일 ${today} · 보낼 메시지 ${msgs.length}개`);
 msgs.forEach(m => console.log("----\n" + m + "\n(" + [...m].length + "자)"));
 if (!msgs.length || DRY) process.exit(0);

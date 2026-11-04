@@ -13,6 +13,10 @@ on:
         description: "보내지 않고 내용만 확인"
         type: boolean
         default: true
+      test:
+        description: "메시지 맨 위에 [테스트 발송] 표시"
+        type: boolean
+        default: true
 
 permissions:
   contents: write
@@ -33,6 +37,7 @@ jobs:
           ARGS=""
           if [ -n "${{ inputs.date }}" ]; then ARGS="$ARGS --date=${{ inputs.date }}"; fi
           if [ "${{ inputs.dry }}" = "true" ]; then ARGS="$ARGS --dry"; fi
+          if [ "${{ inputs.test }}" = "true" ]; then ARGS="$ARGS --test"; fi
           node scripts/report.mjs $ARGS
 
       # 공개 저장소의 예약 실행은 60일간 활동이 없으면 GitHub이 멈춥니다. 매월 1일에 기록 한 줄을 남겨 계속 돌게 합니다.
