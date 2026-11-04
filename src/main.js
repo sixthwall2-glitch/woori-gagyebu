@@ -10,6 +10,7 @@ import {
 import { Capacitor } from "@capacitor/core";
 import { firebaseConfig } from "./firebase-config.js";
 import { startSession, endSession, toast, show, $ } from "./ledger.js";
+import { setupPush } from "./push.js";
 
 const configured = !!(firebaseConfig.apiKey && firebaseConfig.projectId);
 
@@ -56,7 +57,7 @@ if (!configured) {
 
   onAuthStateChanged(auth, user => {
     $("boot").hidden = true;
-    if (user) { $("whoami").textContent = user.email || ""; startSession(db); }
+    if (user) { $("whoami").textContent = user.email || ""; startSession(db, user.uid); setupPush(app, fs, user.uid); }
     else endSession();
   });
 

@@ -84,3 +84,26 @@ jobs:
           gh release create "v${{ github.run_number }}" woori-gagyebu.apk \
             --title "우리집 가계부 v${{ github.run_number }}" \
             --notes "폰에서 woori-gagyebu.apk를 내려받아 설치하세요." --latest
+
+  firebase:
+    name: Firebase 서버 배포 (알림·규칙)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 2 }
+      - name: 바뀐 부분 확인
+        id: diff
+        run: |
+          if git diff --name-only HEAD~1 HEAD | grep -qE '^(functions/|firestore.rules|firebase.json)'; then echo "go=1" >> "$GITHUB_OUTPUT"; fi
+      - uses: actions/setup-node@v4
+        if: steps.diff.outputs.go == '1'
+        with: { node-version: 22 }
+      - name: 배포
+        if: steps.diff.outputs.go == '1'
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          echo "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/sa.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/sa.json"
+          (cd functions && npm ci)
+          npx --yes firebase-tools@15 deploy --only functions,firestore:rules --project woori-gagyebu-50d77 --force --non-interactive

@@ -13,3 +13,19 @@ self.addEventListener("fetch", e => {
   e.respondWith(fetch(e.request).then(r => { const c = r.clone(); caches.open(CACHE).then(x => x.put(e.request, c)); return r; })
     .catch(() => caches.match(e.request).then(r => r || caches.match("index.html"))));
 });
+
+// 가족 등록 알림 (Firebase 클라우드 메시징이 보낸 웹 푸시)
+self.addEventListener("push", e => {
+  let p = {}; try { p = e.data ? e.data.json() : {}; } catch { p = { notification: { title: "가계부", body: e.data && e.data.text() } }; }
+  const n = p.notification || {};
+  const link = (p.fcmOptions && p.fcmOptions.link) || n.click_action || self.registration.scope;
+  e.waitUntil(self.registration.showNotification(n.title || "가계부", { body: n.body || "", icon: n.icon || "icons/icon-192.png", tag: n.tag, data: { link } }));
+});
+self.addEventListener("notificationclick", e => {
+  e.notification.close();
+  const link = (e.notification.data && e.notification.data.link) || self.registration.scope;
+  e.waitUntil(clients.matchAll({ type: "window", includeUncontrolled: true }).then(ws => {
+    const w = ws.find(c => c.url.startsWith(self.registration.scope));
+    return w ? w.focus() : clients.openWindow(link);
+  }));
+});

@@ -80,6 +80,7 @@ let draft=null;
 let memoHist=new Map(); // memo -> {category,type,count}
 let autoComplete=true; try{autoComplete=localStorage.getItem("ac")!=="0"}catch(e){}
 let unsubSettings=null;
+let currentUid=null;
 let newIcon="pet", pendingDel=false, pendingMemberRm=null;
 
 const member=id=>settings.members.find(m=>m.id===id)||{id,label:"알 수 없음",icon:"dots"};
@@ -283,7 +284,7 @@ async function saveEntry(category){
   const amount=parseWon($("amount2").value);
   if(!amount){$("catMsg").textContent="금액을 입력하세요.";$("amount2").focus();return}
   const memo=$("memoIn").value.trim().slice(0,40);
-  const body={type:draft.type,amount,category,date:draft.date,who:draft.who,memo,createdAt:draft.createdAt||Date.now()};
+  const body={type:draft.type,amount,category,date:draft.date,who:draft.who,memo,createdAt:draft.createdAt||Date.now(),by:draft.by||currentUid};
   if(draft.id)body.updatedAt=Date.now();
   saving=true;
   try{
@@ -380,8 +381,8 @@ function subscribe(){
       renderHome();if(!$("sList").hidden)renderList();if(!$("sStats").hidden)renderStats()},
       err=>{if(err&&err.code==="permission-denied")setReadOnly();else $("dayRows").innerHTML='<div class="empty">내역을 불러오지 못했습니다. 앱을 다시 열어 주세요.</div>'});
 }
-export function startSession(adapter){
-  db=adapter;canWrite=true;$("status").hidden=true;
+export function startSession(adapter,uid){
+  currentUid=uid||null;db=adapter;canWrite=true;$("status").hidden=true;
   if(unsubSettings)unsubSettings();
   unsubSettings=db.doc("meta/settings").onSnapshot(s=>{if(!s.exists)return;const d=s.data();
     settings={budget:Number(d.budget)||0,daily:d.daily==null?DAILY_DEFAULT:Number(d.daily)||0,
